@@ -70,7 +70,8 @@ class ZKPDashboard {
   getFilteredData() {
     if (!this.selectedRun) return this.benchmarkData;
     return this.benchmarkData.filter(
-      (b) => b.report_id === this.selectedRun || b.session_id === this.selectedRun
+      (b) =>
+        b.report_id === this.selectedRun || b.session_id === this.selectedRun
     );
   }
 
@@ -349,6 +350,12 @@ class ZKPDashboard {
       );
       this.charts.comparison.update();
     }
+  }
+
+  updateChartsForTab(tabName) {
+    // Optionally, update only the charts relevant to the active tab
+    // For now, just update all charts
+    this.updateCharts();
   }
 
   switchTab(tabName) {
@@ -523,7 +530,8 @@ class ZKPDashboard {
     this.charts.proofSize = new Chart(
       document.getElementById("proofSizeChart"),
       {
-        type: "histogram",
+        // Use 'bar' instead of 'histogram' for compatibility
+        type: "bar",
         data: { labels: [], datasets: [] },
         options: {
           ...chartOptions,
@@ -620,578 +628,9 @@ class ZKPDashboard {
     });
 
     this.charts.latency = new Chart(document.getElementById("latencyChart"), {
-      type: "box",
-      data: { labels: [], datasets: [] },
-      options: chartOptions,
-    });
-
-    // Comparison Chart
-    this.charts.comparison = new Chart(
-      document.getElementById("comparisonChart"),
-      {
-        type: "bar",
-        data: { labels: [], datasets: [] },
-        options: {
-          ...chartOptions,
-          scales: {
-            ...chartOptions.scales,
-            y: {
-              ...chartOptions.scales.y,
-              title: { display: true, text: "Value" },
-            },
-          },
-        },
-      }
-    );
-  }
-  async loadBenchmarkData() {
-    try {
-      const response = await fetch("/api/benchmarks");
-      if (response.ok) {
-        const data = await response.json();
-        // The API returns {benchmarks: [...], count: ..., metrics: ...}
-        // We need just the benchmarks array
-        this.benchmarkData = data.benchmarks || [];
-      } else {
-        // Fallback: load from local files
-        await this.loadLocalBenchmarkData();
-      }
-    } catch (error) {
-      console.warn("Failed to load from API, trying local files:", error);
-      await this.loadLocalBenchmarkData();
-    }
-  }
-
-  async loadLocalBenchmarkData() {
-    try {
-      // Load individual benchmark files
-      const benchmarkFiles = await this.getBenchmarkFiles();
-      this.benchmarkData = [];
-
-      for (const file of benchmarkFiles) {
-        try {
-          const response = await fetch(`../benchmarks/${file}`);
-          if (response.ok) {
-            const data = await response.json();
-            data.filename = file;
-            this.benchmarkData.push(data);
-          }
-        } catch (error) {
-          console.warn(`Failed to load ${file}:`, error);
-        }
-      }
-    } catch (error) {
-      console.error("Failed to load benchmark data:", error);
-      // Use sample data for demo
-      this.benchmarkData = this.generateSampleData();
-    }
-  }
-
-  async getBenchmarkFiles() {
-    // Return a list of known benchmark files
-    return [
-      "benchmark_20250627_100324_client_benchmark_client_0.json",
-      "benchmark_20250627_100324_client_benchmark_client_1.json",
-      "benchmark_20250627_100325_client_benchmark_client_2.json",
-      "benchmark_20250627_101136_client_benchmark_client_0.json",
-      "benchmark_20250627_101136_client_benchmark_client_1.json",
-      "benchmark_20250627_101138_client_benchmark_client_2.json",
-    ];
-  }
-
-  generateSampleData() {
-    // Generate sample data for demonstration
-    const sampleData = [];
-    const scenarios = [
-      "single-client",
-      "multi-client-sequential",
-      "multi-client-concurrent",
-    ];
-
-    for (let i = 0; i < 10; i++) {
-      const data = {
-        session_id: `sample-${i}`,
-        client_id: `client_${i}`,
-        start_time: new Date(Date.now() - i * 3600000).toISOString(),
-        end_time: new Date(Date.now() - i * 3600000 + 30000).toISOString(),
-        total_duration_ms: 30000 + Math.random() * 20000,
-        scenario: scenarios[i % scenarios.length],
-        zkp_metrics: {
-          setup_time_ms: 20 + Math.random() * 40,
-          witness_generation_time_ms: 30 + Math.random() * 50,
-          proof_generation_time_ms: 80 + Math.random() * 100,
-          proof_verification_time_ms: 100 + Math.random() * 150,
-          proof_size_bytes: 1000 + Math.random() * 500,
-          circuit_constraints: 1000,
-          circuit_advice_columns: 5,
-          circuit_fixed_columns: 3,
-          folding_iterations: Math.floor(Math.random() * 10),
-        },
-        training_metrics: {
-          dataset_size: 500 + Math.random() * 500,
-          num_features: 5,
-          training_time_ms: 2 + Math.random() * 8,
-          epochs_completed: 10,
-          final_loss: 0.1 + Math.random() * 0.4,
-          initial_loss: 0.4 + Math.random() * 0.2,
-          convergence_epoch: Math.floor(Math.random() * 10),
-          loss_history: Array.from(
-            { length: 10 },
-            (_, i) => 0.5 - i * 0.03 + Math.random() * 0.02
-          ),
-        },
-        system_metrics: [],
-      };
-      sampleData.push(data);
-    }
-
-    return sampleData;
-  }
-
-  updateMetrics() {
-    const data = this.getFilteredData();
-    if (data.length === 0) return;
-
-    const metrics = this.calculateAggregateMetrics(data);
-
-    document.getElementById("activeClients").textContent = this.isRunning
-      ? data.length
-      : "0";
-    document.getElementById("avgProofTime").textContent = `${Math.round(
-      metrics.avgProofTime
-    )}ms`;
-    document.getElementById("avgVerifyTime").textContent = `${Math.round(
-      metrics.avgVerifyTime
-    )}ms`;
-    document.getElementById("avgTrainingTime").textContent = `${Math.round(
-      metrics.avgTrainingTime
-    )}ms`;
-    document.getElementById("avgLoss").textContent = metrics.avgLoss.toFixed(3);
-    document.getElementById("avgProofSize").textContent = `${Math.round(
-      metrics.avgProofSize / 1024
-    )}KB`;
-  }
-  calculateAggregateMetrics(data) {
-    if (!Array.isArray(data) || data.length === 0) {
-      return {
-        avgProofTime: 0,
-        avgVerifyTime: 0,
-        avgTrainingTime: 0,
-        avgLoss: 0,
-        avgProofSize: 0,
-      };
-    }
-
-    const totals = data.reduce(
-      (acc, item) => {
-        acc.proofTime += item.zkp_metrics?.proof_generation_time_ms || 0;
-        acc.verifyTime += item.zkp_metrics?.proof_verification_time_ms || 0;
-        acc.trainingTime += item.training_metrics?.training_time_ms || 0;
-        acc.loss += item.training_metrics?.final_loss || 0;
-        acc.proofSize += item.zkp_metrics?.proof_size_bytes || 0;
-        return acc;
-      },
-      {
-        proofTime: 0,
-        verifyTime: 0,
-        trainingTime: 0,
-        loss: 0,
-        proofSize: 0,
-      }
-    );
-
-    const count = data.length;
-    return {
-      avgProofTime: totals.proofTime / count,
-      avgVerifyTime: totals.verifyTime / count,
-      avgTrainingTime: totals.trainingTime / count,
-      avgLoss: totals.loss / count,
-      avgProofSize: totals.proofSize / count,
-    };
-  }
-
-  updateTable() {
-    const data = this.getFilteredData();
-    const tbody = document.querySelector("#benchmarkTable tbody");
-    tbody.innerHTML = "";
-
-    if (!Array.isArray(data)) {
-      console.warn("benchmarkData is not an array:", data);
-      return;
-    }
-
-    data.slice(0, 20).forEach((item) => {
-      const row = document.createElement("tr");
-      row.innerHTML = `
-                <td>${new Date(item.start_time).toLocaleString()}</td>
-                <td>${item.scenario || "Unknown"}</td>
-                <td>${this.extractClientCount(item.client_id)}</td>
-                <td>-</td>
-                <td>${Math.round(
-                  item.zkp_metrics?.proof_generation_time_ms || 0
-                )}ms</td>
-                <td>${Math.round(
-                  item.zkp_metrics?.proof_verification_time_ms || 0
-                )}ms</td>
-                <td>${Math.round(
-                  item.training_metrics?.training_time_ms || 0
-                )}ms</td>
-                <td>${(item.training_metrics?.final_loss || 0).toFixed(3)}</td>
-                <td><span class="status-badge success">Completed</span></td>
-                <td>
-                    <button class="btn btn-secondary btn-sm" onclick="dashboard.viewDetails('${
-                      item.session_id
-                    }')">
-                        <i class="fas fa-eye"></i>
-                    </button>
-                </td>
-            `;
-      tbody.appendChild(row);
-    });
-  }
-
-  updateCharts() {
-    const data = this.getFilteredData();
-    if (this.charts.loss) {
-      this.charts.loss.data = this.prepareLossData(data);
-      this.charts.loss.update();
-    }
-
-    if (this.charts.trainingTime) {
-      this.charts.trainingTime.data = this.prepareTrainingTimeData(data);
-      this.charts.trainingTime.update();
-    }
-
-    if (this.charts.epochs) {
-      this.charts.epochs.data = this.prepareEpochsData(data);
-      this.charts.epochs.update();
-    }
-
-    if (this.charts.dataset) {
-      this.charts.dataset.data = this.prepareDatasetData(data);
-      this.charts.dataset.update();
-    }
-
-    if (this.charts.zkpTime) {
-      this.charts.zkpTime.data = this.prepareZKPTimeData(data);
-      this.charts.zkpTime.update();
-    }
-
-    if (this.charts.proofSize) {
-      this.charts.proofSize.data = this.prepareProofSizeData(data);
-      this.charts.proofSize.update();
-    }
-
-    if (this.charts.circuit) {
-      this.charts.circuit.data = this.prepareCircuitData(data);
-      this.charts.circuit.update();
-    }
-
-    if (this.charts.setupTime) {
-      this.charts.setupTime.data = this.prepareSetupTimeData(data);
-      this.charts.setupTime.update();
-    }
-
-    if (this.charts.scalability) {
-      this.charts.scalability.data = this.prepareScalabilityData(data);
-      this.charts.scalability.update();
-    }
-
-    if (this.charts.throughput) {
-      this.charts.throughput.data = this.prepareThroughputData(data);
-      this.charts.throughput.update();
-    }
-
-    if (this.charts.resource) {
-      this.charts.resource.data = this.prepareResourceData(data);
-      this.charts.resource.update();
-    }
-
-    if (this.charts.latency) {
-      this.charts.latency.data = this.prepareLatencyData(data);
-      this.charts.latency.update();
-    }
-
-    if (this.charts.comparison) {
-      this.charts.comparison.data = this.prepareComparisonData(
-        this.selectedMetric,
-        this.selectedGroupBy
-      );
-      this.charts.comparison.update();
-    }
-  }
-
-  switchTab(tabName) {
-    // Hide all tab contents
-    document.querySelectorAll(".tab-content").forEach((content) => {
-      content.classList.remove("active");
-    });
-
-    // Remove active class from all tab buttons
-    document.querySelectorAll(".tab-btn").forEach((btn) => {
-      btn.classList.remove("active");
-    });
-
-    // Show selected tab content
-    document.getElementById(`${tabName}Tab`).classList.add("active");
-    document.querySelector(`[data-tab="${tabName}"]`).classList.add("active");
-
-    // Update charts for the active tab
-    setTimeout(() => {
-      this.updateChartsForTab(tabName);
-    }, 100);
-  }
-
-  initializeTabs() {
-    // Show first tab by default
-    this.switchTab("training");
-  }
-
-  setupEventListeners() {
-    // Tab switching
-    document.querySelectorAll(".tab-btn").forEach((btn) => {
-      btn.addEventListener("click", (e) => {
-        this.switchTab(e.target.dataset.tab);
-      });
-    });
-
-    // Benchmark controls
-    document.getElementById("runBenchmarkBtn").addEventListener("click", () => {
-      this.runBenchmark();
-    });
-
-    document
-      .getElementById("stopBenchmarkBtn")
-      .addEventListener("click", () => {
-        this.stopBenchmark();
-      });
-
-    // Other controls
-    document.getElementById("refreshBtn").addEventListener("click", () => {
-      this.refreshData();
-    });
-
-    document.getElementById("exportBtn").addEventListener("click", () => {
-      this.exportData();
-    });
-
-    // Comparison controls
-    document.getElementById("compareMetric").addEventListener("change", () => {
-      this.updateComparisonChart();
-    });
-
-    document.getElementById("groupBy").addEventListener("change", () => {
-      this.updateComparisonChart();
-    });
-  }
-
-  initializeCharts() {
-    const chartOptions = {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: {
-          position: "top",
-        },
-        tooltip: {
-          mode: "index",
-          intersect: false,
-        },
-      },
-      scales: {
-        x: {
-          display: true,
-          grid: {
-            display: true,
-            color: "rgba(0,0,0,0.1)",
-          },
-        },
-        y: {
-          display: true,
-          grid: {
-            display: true,
-            color: "rgba(0,0,0,0.1)",
-          },
-        },
-      },
-    };
-
-    // Training Metrics Charts
-    this.charts.loss = new Chart(document.getElementById("lossChart"), {
-      type: "line",
-      data: { labels: [], datasets: [] },
-      options: {
-        ...chartOptions,
-        scales: {
-          ...chartOptions.scales,
-          y: {
-            ...chartOptions.scales.y,
-            title: { display: true, text: "Loss" },
-          },
-        },
-      },
-    });
-
-    this.charts.trainingTime = new Chart(
-      document.getElementById("trainingTimeChart"),
-      {
-        type: "bar",
-        data: { labels: [], datasets: [] },
-        options: {
-          ...chartOptions,
-          scales: {
-            ...chartOptions.scales,
-            y: {
-              ...chartOptions.scales.y,
-              title: { display: true, text: "Training Time (ms)" },
-            },
-          },
-        },
-      }
-    );
-
-    this.charts.epochs = new Chart(document.getElementById("epochsChart"), {
+      // Use 'bar' instead of 'box' for compatibility
       type: "bar",
       data: { labels: [], datasets: [] },
-      options: {
-        ...chartOptions,
-        scales: {
-          ...chartOptions.scales,
-          y: {
-            ...chartOptions.scales.y,
-            title: { display: true, text: "Epochs Completed" },
-          },
-        },
-      },
-    });
-
-    this.charts.dataset = new Chart(document.getElementById("datasetChart"), {
-      type: "doughnut",
-      data: { labels: [], datasets: [] },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { position: "right" },
-        },
-      },
-    });
-
-    // ZKP Metrics Charts
-    this.charts.zkpTime = new Chart(document.getElementById("zkpTimeChart"), {
-      type: "scatter",
-      data: { datasets: [] },
-      options: {
-        ...chartOptions,
-        scales: {
-          x: { title: { display: true, text: "Proof Generation Time (ms)" } },
-          y: { title: { display: true, text: "Verification Time (ms)" } },
-        },
-      },
-    });
-
-    this.charts.proofSize = new Chart(
-      document.getElementById("proofSizeChart"),
-      {
-        type: "histogram",
-        data: { labels: [], datasets: [] },
-        options: {
-          ...chartOptions,
-          scales: {
-            ...chartOptions.scales,
-            y: {
-              ...chartOptions.scales.y,
-              title: { display: true, text: "Frequency" },
-            },
-          },
-        },
-      }
-    );
-
-    this.charts.circuit = new Chart(document.getElementById("circuitChart"), {
-      type: "radar",
-      data: { labels: [], datasets: [] },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-          r: {
-            beginAtZero: true,
-          },
-        },
-      },
-    });
-
-    this.charts.setupTime = new Chart(
-      document.getElementById("setupTimeChart"),
-      {
-        type: "line",
-        data: { labels: [], datasets: [] },
-        options: {
-          ...chartOptions,
-          scales: {
-            ...chartOptions.scales,
-            y: {
-              ...chartOptions.scales.y,
-              title: { display: true, text: "Setup Time (ms)" },
-            },
-          },
-        },
-      }
-    );
-
-    // Performance Charts
-    this.charts.scalability = new Chart(
-      document.getElementById("scalabilityChart"),
-      {
-        type: "line",
-        data: { labels: [], datasets: [] },
-        options: {
-          ...chartOptions,
-          scales: {
-            x: { title: { display: true, text: "Number of Clients" } },
-            y: { title: { display: true, text: "Average Time (ms)" } },
-          },
-        },
-      }
-    );
-
-    this.charts.throughput = new Chart(
-      document.getElementById("throughputChart"),
-      {
-        type: "line",
-        data: { labels: [], datasets: [] },
-        options: {
-          ...chartOptions,
-          scales: {
-            ...chartOptions.scales,
-            y: {
-              ...chartOptions.scales.y,
-              title: { display: true, text: "Operations/Second" },
-            },
-          },
-        },
-      }
-    );
-
-    this.charts.resource = new Chart(document.getElementById("resourceChart"), {
-      type: "line",
-      data: { labels: [], datasets: [] },
-      options: {
-        ...chartOptions,
-        scales: {
-          ...chartOptions.scales,
-          y: {
-            ...chartOptions.scales.y,
-            title: { display: true, text: "Usage %" },
-          },
-        },
-      },
-    });
-
-    this.charts.latency = new Chart(document.getElementById("latencyChart"), {
-      type: "box",
-      data: { labels: [], datasets: [] },
       options: chartOptions,
     });
 
@@ -1214,851 +653,283 @@ class ZKPDashboard {
       }
     );
   }
-  async loadBenchmarkData() {
-    try {
-      const response = await fetch("/api/benchmarks");
-      if (response.ok) {
-        const data = await response.json();
-        // The API returns {benchmarks: [...], count: ..., metrics: ...}
-        // We need just the benchmarks array
-        this.benchmarkData = data.benchmarks || [];
-      } else {
-        // Fallback: load from local files
-        await this.loadLocalBenchmarkData();
-      }
-    } catch (error) {
-      console.warn("Failed to load from API, trying local files:", error);
-      await this.loadLocalBenchmarkData();
+
+  // --- Chart Data Preparation Methods ---
+
+  prepareLossData(data) {
+    // Average loss per epoch across all runs
+    if (!data.length || !data[0].training_metrics?.loss_history) {
+      return { labels: [], datasets: [] };
     }
-  }
-
-  async loadLocalBenchmarkData() {
-    try {
-      // Load individual benchmark files
-      const benchmarkFiles = await this.getBenchmarkFiles();
-      this.benchmarkData = [];
-
-      for (const file of benchmarkFiles) {
-        try {
-          const response = await fetch(`../benchmarks/${file}`);
-          if (response.ok) {
-            const data = await response.json();
-            data.filename = file;
-            this.benchmarkData.push(data);
-          }
-        } catch (error) {
-          console.warn(`Failed to load ${file}:`, error);
-        }
-      }
-    } catch (error) {
-      console.error("Failed to load benchmark data:", error);
-      // Use sample data for demo
-      this.benchmarkData = this.generateSampleData();
-    }
-  }
-
-  async getBenchmarkFiles() {
-    // Return a list of known benchmark files
-    return [
-      "benchmark_20250627_100324_client_benchmark_client_0.json",
-      "benchmark_20250627_100324_client_benchmark_client_1.json",
-      "benchmark_20250627_100325_client_benchmark_client_2.json",
-      "benchmark_20250627_101136_client_benchmark_client_0.json",
-      "benchmark_20250627_101136_client_benchmark_client_1.json",
-      "benchmark_20250627_101138_client_benchmark_client_2.json",
-    ];
-  }
-
-  generateSampleData() {
-    // Generate sample data for demonstration
-    const sampleData = [];
-    const scenarios = [
-      "single-client",
-      "multi-client-sequential",
-      "multi-client-concurrent",
-    ];
-
-    for (let i = 0; i < 10; i++) {
-      const data = {
-        session_id: `sample-${i}`,
-        client_id: `client_${i}`,
-        start_time: new Date(Date.now() - i * 3600000).toISOString(),
-        end_time: new Date(Date.now() - i * 3600000 + 30000).toISOString(),
-        total_duration_ms: 30000 + Math.random() * 20000,
-        scenario: scenarios[i % scenarios.length],
-        zkp_metrics: {
-          setup_time_ms: 20 + Math.random() * 40,
-          witness_generation_time_ms: 30 + Math.random() * 50,
-          proof_generation_time_ms: 80 + Math.random() * 100,
-          proof_verification_time_ms: 100 + Math.random() * 150,
-          proof_size_bytes: 1000 + Math.random() * 500,
-          circuit_constraints: 1000,
-          circuit_advice_columns: 5,
-          circuit_fixed_columns: 3,
-          folding_iterations: Math.floor(Math.random() * 10),
-        },
-        training_metrics: {
-          dataset_size: 500 + Math.random() * 500,
-          num_features: 5,
-          training_time_ms: 2 + Math.random() * 8,
-          epochs_completed: 10,
-          final_loss: 0.1 + Math.random() * 0.4,
-          initial_loss: 0.4 + Math.random() * 0.2,
-          convergence_epoch: Math.floor(Math.random() * 10),
-          loss_history: Array.from(
-            { length: 10 },
-            (_, i) => 0.5 - i * 0.03 + Math.random() * 0.02
-          ),
-        },
-        system_metrics: [],
-      };
-      sampleData.push(data);
-    }
-
-    return sampleData;
-  }
-
-  updateMetrics() {
-    const data = this.getFilteredData();
-    if (data.length === 0) return;
-
-    const metrics = this.calculateAggregateMetrics(data);
-
-    document.getElementById("activeClients").textContent = this.isRunning
-      ? data.length
-      : "0";
-    document.getElementById("avgProofTime").textContent = `${Math.round(
-      metrics.avgProofTime
-    )}ms`;
-    document.getElementById("avgVerifyTime").textContent = `${Math.round(
-      metrics.avgVerifyTime
-    )}ms`;
-    document.getElementById("avgTrainingTime").textContent = `${Math.round(
-      metrics.avgTrainingTime
-    )}ms`;
-    document.getElementById("avgLoss").textContent = metrics.avgLoss.toFixed(3);
-    document.getElementById("avgProofSize").textContent = `${Math.round(
-      metrics.avgProofSize / 1024
-    )}KB`;
-  }
-  calculateAggregateMetrics(data) {
-    if (!Array.isArray(data) || data.length === 0) {
-      return {
-        avgProofTime: 0,
-        avgVerifyTime: 0,
-        avgTrainingTime: 0,
-        avgLoss: 0,
-        avgProofSize: 0,
-      };
-    }
-
-    const totals = data.reduce(
-      (acc, item) => {
-        acc.proofTime += item.zkp_metrics?.proof_generation_time_ms || 0;
-        acc.verifyTime += item.zkp_metrics?.proof_verification_time_ms || 0;
-        acc.trainingTime += item.training_metrics?.training_time_ms || 0;
-        acc.loss += item.training_metrics?.final_loss || 0;
-        acc.proofSize += item.zkp_metrics?.proof_size_bytes || 0;
-        return acc;
-      },
-      {
-        proofTime: 0,
-        verifyTime: 0,
-        trainingTime: 0,
-        loss: 0,
-        proofSize: 0,
-      }
+    const numEpochs = data[0].training_metrics.loss_history.length;
+    const labels = Array.from(
+      { length: numEpochs },
+      (_, i) => `Epoch ${i + 1}`
     );
-
-    const count = data.length;
+    const avgLoss = Array(numEpochs).fill(0);
+    data.forEach((item) => {
+      if (item.training_metrics?.loss_history) {
+        item.training_metrics.loss_history.forEach((loss, i) => {
+          avgLoss[i] += loss;
+        });
+      }
+    });
+    for (let i = 0; i < numEpochs; i++) {
+      avgLoss[i] /= data.length;
+    }
     return {
-      avgProofTime: totals.proofTime / count,
-      avgVerifyTime: totals.verifyTime / count,
-      avgTrainingTime: totals.trainingTime / count,
-      avgLoss: totals.loss / count,
-      avgProofSize: totals.proofSize / count,
+      labels,
+      datasets: [
+        {
+          label: "Average Loss",
+          data: avgLoss,
+          borderColor: "#dc3545",
+          backgroundColor: "rgba(220,53,69,0.2)",
+          fill: true,
+          tension: 0.2,
+        },
+      ],
     };
   }
 
-  updateTable() {
-    const data = this.getFilteredData();
-    const tbody = document.querySelector("#benchmarkTable tbody");
-    tbody.innerHTML = "";
-
-    if (!Array.isArray(data)) {
-      console.warn("benchmarkData is not an array:", data);
-      return;
-    }
-
-    data.slice(0, 20).forEach((item) => {
-      const row = document.createElement("tr");
-      row.innerHTML = `
-                <td>${new Date(item.start_time).toLocaleString()}</td>
-                <td>${item.scenario || "Unknown"}</td>
-                <td>${this.extractClientCount(item.client_id)}</td>
-                <td>-</td>
-                <td>${Math.round(
-                  item.zkp_metrics?.proof_generation_time_ms || 0
-                )}ms</td>
-                <td>${Math.round(
-                  item.zkp_metrics?.proof_verification_time_ms || 0
-                )}ms</td>
-                <td>${Math.round(
-                  item.training_metrics?.training_time_ms || 0
-                )}ms</td>
-                <td>${(item.training_metrics?.final_loss || 0).toFixed(3)}</td>
-                <td><span class="status-badge success">Completed</span></td>
-                <td>
-                    <button class="btn btn-secondary btn-sm" onclick="dashboard.viewDetails('${
-                      item.session_id
-                    }')">
-                        <i class="fas fa-eye"></i>
-                    </button>
-                </td>
-            `;
-      tbody.appendChild(row);
-    });
-  }
-
-  updateCharts() {
-    const data = this.getFilteredData();
-    if (this.charts.loss) {
-      this.charts.loss.data = this.prepareLossData(data);
-      this.charts.loss.update();
-    }
-
-    if (this.charts.trainingTime) {
-      this.charts.trainingTime.data = this.prepareTrainingTimeData(data);
-      this.charts.trainingTime.update();
-    }
-
-    if (this.charts.epochs) {
-      this.charts.epochs.data = this.prepareEpochsData(data);
-      this.charts.epochs.update();
-    }
-
-    if (this.charts.dataset) {
-      this.charts.dataset.data = this.prepareDatasetData(data);
-      this.charts.dataset.update();
-    }
-
-    if (this.charts.zkpTime) {
-      this.charts.zkpTime.data = this.prepareZKPTimeData(data);
-      this.charts.zkpTime.update();
-    }
-
-    if (this.charts.proofSize) {
-      this.charts.proofSize.data = this.prepareProofSizeData(data);
-      this.charts.proofSize.update();
-    }
-
-    if (this.charts.circuit) {
-      this.charts.circuit.data = this.prepareCircuitData(data);
-      this.charts.circuit.update();
-    }
-
-    if (this.charts.setupTime) {
-      this.charts.setupTime.data = this.prepareSetupTimeData(data);
-      this.charts.setupTime.update();
-    }
-
-    if (this.charts.scalability) {
-      this.charts.scalability.data = this.prepareScalabilityData(data);
-      this.charts.scalability.update();
-    }
-
-    if (this.charts.throughput) {
-      this.charts.throughput.data = this.prepareThroughputData(data);
-      this.charts.throughput.update();
-    }
-
-    if (this.charts.resource) {
-      this.charts.resource.data = this.prepareResourceData(data);
-      this.charts.resource.update();
-    }
-
-    if (this.charts.latency) {
-      this.charts.latency.data = this.prepareLatencyData(data);
-      this.charts.latency.update();
-    }
-
-    if (this.charts.comparison) {
-      this.charts.comparison.data = this.prepareComparisonData(
-        this.selectedMetric,
-        this.selectedGroupBy
-      );
-      this.charts.comparison.update();
-    }
-  }
-
-  switchTab(tabName) {
-    // Hide all tab contents
-    document.querySelectorAll(".tab-content").forEach((content) => {
-      content.classList.remove("active");
-    });
-
-    // Remove active class from all tab buttons
-    document.querySelectorAll(".tab-btn").forEach((btn) => {
-      btn.classList.remove("active");
-    });
-
-    // Show selected tab content
-    document.getElementById(`${tabName}Tab`).classList.add("active");
-    document.querySelector(`[data-tab="${tabName}"]`).classList.add("active");
-
-    // Update charts for the active tab
-    setTimeout(() => {
-      this.updateChartsForTab(tabName);
-    }, 100);
-  }
-
-  initializeTabs() {
-    // Show first tab by default
-    this.switchTab("training");
-  }
-
-  setupEventListeners() {
-    // Tab switching
-    document.querySelectorAll(".tab-btn").forEach((btn) => {
-      btn.addEventListener("click", (e) => {
-        this.switchTab(e.target.dataset.tab);
-      });
-    });
-
-    // Benchmark controls
-    document.getElementById("runBenchmarkBtn").addEventListener("click", () => {
-      this.runBenchmark();
-    });
-
-    document
-      .getElementById("stopBenchmarkBtn")
-      .addEventListener("click", () => {
-        this.stopBenchmark();
-      });
-
-    // Other controls
-    document.getElementById("refreshBtn").addEventListener("click", () => {
-      this.refreshData();
-    });
-
-    document.getElementById("exportBtn").addEventListener("click", () => {
-      this.exportData();
-    });
-
-    // Comparison controls
-    document.getElementById("compareMetric").addEventListener("change", () => {
-      this.updateComparisonChart();
-    });
-
-    document.getElementById("groupBy").addEventListener("change", () => {
-      this.updateComparisonChart();
-    });
-  }
-
-  initializeCharts() {
-    const chartOptions = {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: {
-          position: "top",
-        },
-        tooltip: {
-          mode: "index",
-          intersect: false,
-        },
-      },
-      scales: {
-        x: {
-          display: true,
-          grid: {
-            display: true,
-            color: "rgba(0,0,0,0.1)",
-          },
-        },
-        y: {
-          display: true,
-          grid: {
-            display: true,
-            color: "rgba(0,0,0,0.1)",
-          },
-        },
-      },
-    };
-
-    // Training Metrics Charts
-    this.charts.loss = new Chart(document.getElementById("lossChart"), {
-      type: "line",
-      data: { labels: [], datasets: [] },
-      options: {
-        ...chartOptions,
-        scales: {
-          ...chartOptions.scales,
-          y: {
-            ...chartOptions.scales.y,
-            title: { display: true, text: "Loss" },
-          },
-        },
-      },
-    });
-
-    this.charts.trainingTime = new Chart(
-      document.getElementById("trainingTimeChart"),
-      {
-        type: "bar",
-        data: { labels: [], datasets: [] },
-        options: {
-          ...chartOptions,
-          scales: {
-            ...chartOptions.scales,
-            y: {
-              ...chartOptions.scales.y,
-              title: { display: true, text: "Training Time (ms)" },
-            },
-          },
-        },
-      }
+  prepareTrainingTimeData(data) {
+    // Bar chart: training time per client/session
+    const labels = data.map((item) => item.client_id || item.session_id || "");
+    const times = data.map(
+      (item) => item.training_metrics?.training_time_ms || 0
     );
-
-    this.charts.epochs = new Chart(document.getElementById("epochsChart"), {
-      type: "bar",
-      data: { labels: [], datasets: [] },
-      options: {
-        ...chartOptions,
-        scales: {
-          ...chartOptions.scales,
-          y: {
-            ...chartOptions.scales.y,
-            title: { display: true, text: "Epochs Completed" },
-          },
-        },
-      },
-    });
-
-    this.charts.dataset = new Chart(document.getElementById("datasetChart"), {
-      type: "doughnut",
-      data: { labels: [], datasets: [] },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { position: "right" },
-        },
-      },
-    });
-
-    // ZKP Metrics Charts
-    this.charts.zkpTime = new Chart(document.getElementById("zkpTimeChart"), {
-      type: "scatter",
-      data: { datasets: [] },
-      options: {
-        ...chartOptions,
-        scales: {
-          x: { title: { display: true, text: "Proof Generation Time (ms)" } },
-          y: { title: { display: true, text: "Verification Time (ms)" } },
-        },
-      },
-    });
-
-    this.charts.proofSize = new Chart(
-      document.getElementById("proofSizeChart"),
-      {
-        type: "histogram",
-        data: { labels: [], datasets: [] },
-        options: {
-          ...chartOptions,
-          scales: {
-            ...chartOptions.scales,
-            y: {
-              ...chartOptions.scales.y,
-              title: { display: true, text: "Frequency" },
-            },
-          },
-        },
-      }
-    );
-
-    this.charts.circuit = new Chart(document.getElementById("circuitChart"), {
-      type: "radar",
-      data: { labels: [], datasets: [] },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-          r: {
-            beginAtZero: true,
-          },
-        },
-      },
-    });
-
-    this.charts.setupTime = new Chart(
-      document.getElementById("setupTimeChart"),
-      {
-        type: "line",
-        data: { labels: [], datasets: [] },
-        options: {
-          ...chartOptions,
-          scales: {
-            ...chartOptions.scales,
-            y: {
-              ...chartOptions.scales.y,
-              title: { display: true, text: "Setup Time (ms)" },
-            },
-          },
-        },
-      }
-    );
-
-    // Performance Charts
-    this.charts.scalability = new Chart(
-      document.getElementById("scalabilityChart"),
-      {
-        type: "line",
-        data: { labels: [], datasets: [] },
-        options: {
-          ...chartOptions,
-          scales: {
-            x: { title: { display: true, text: "Number of Clients" } },
-            y: { title: { display: true, text: "Average Time (ms)" } },
-          },
-        },
-      }
-    );
-
-    this.charts.throughput = new Chart(
-      document.getElementById("throughputChart"),
-      {
-        type: "line",
-        data: { labels: [], datasets: [] },
-        options: {
-          ...chartOptions,
-          scales: {
-            ...chartOptions.scales,
-            y: {
-              ...chartOptions.scales.y,
-              title: { display: true, text: "Operations/Second" },
-            },
-          },
-        },
-      }
-    );
-
-    this.charts.resource = new Chart(document.getElementById("resourceChart"), {
-      type: "line",
-      data: { labels: [], datasets: [] },
-      options: {
-        ...chartOptions,
-        scales: {
-          ...chartOptions.scales,
-          y: {
-            ...chartOptions.scales.y,
-            title: { display: true, text: "Usage %" },
-          },
-        },
-      },
-    });
-
-    this.charts.latency = new Chart(document.getElementById("latencyChart"), {
-      type: "box",
-      data: { labels: [], datasets: [] },
-      options: chartOptions,
-    });
-
-    // Comparison Chart
-    this.charts.comparison = new Chart(
-      document.getElementById("comparisonChart"),
-      {
-        type: "bar",
-        data: { labels: [], datasets: [] },
-        options: {
-          ...chartOptions,
-          scales: {
-            ...chartOptions.scales,
-            y: {
-              ...chartOptions.scales.y,
-              title: { display: true, text: "Value" },
-            },
-          },
-        },
-      }
-    );
-  }
-  async loadBenchmarkData() {
-    try {
-      const response = await fetch("/api/benchmarks");
-      if (response.ok) {
-        const data = await response.json();
-        // The API returns {benchmarks: [...], count: ..., metrics: ...}
-        // We need just the benchmarks array
-        this.benchmarkData = data.benchmarks || [];
-      } else {
-        // Fallback: load from local files
-        await this.loadLocalBenchmarkData();
-      }
-    } catch (error) {
-      console.warn("Failed to load from API, trying local files:", error);
-      await this.loadLocalBenchmarkData();
-    }
-  }
-
-  async loadLocalBenchmarkData() {
-    try {
-      // Load individual benchmark files
-      const benchmarkFiles = await this.getBenchmarkFiles();
-      this.benchmarkData = [];
-
-      for (const file of benchmarkFiles) {
-        try {
-          const response = await fetch(`../benchmarks/${file}`);
-          if (response.ok) {
-            const data = await response.json();
-            data.filename = file;
-            this.benchmarkData.push(data);
-          }
-        } catch (error) {
-          console.warn(`Failed to load ${file}:`, error);
-        }
-      }
-    } catch (error) {
-      console.error("Failed to load benchmark data:", error);
-      // Use sample data for demo
-      this.benchmarkData = this.generateSampleData();
-    }
-  }
-
-  async getBenchmarkFiles() {
-    // Return a list of known benchmark files
-    return [
-      "benchmark_20250627_100324_client_benchmark_client_0.json",
-      "benchmark_20250627_100324_client_benchmark_client_1.json",
-      "benchmark_20250627_100325_client_benchmark_client_2.json",
-      "benchmark_20250627_101136_client_benchmark_client_0.json",
-      "benchmark_20250627_101136_client_benchmark_client_1.json",
-      "benchmark_20250627_101138_client_benchmark_client_2.json",
-    ];
-  }
-
-  generateSampleData() {
-    // Generate sample data for demonstration
-    const sampleData = [];
-    const scenarios = [
-      "single-client",
-      "multi-client-sequential",
-      "multi-client-concurrent",
-    ];
-
-    for (let i = 0; i < 10; i++) {
-      const data = {
-        session_id: `sample-${i}`,
-        client_id: `client_${i}`,
-        start_time: new Date(Date.now() - i * 3600000).toISOString(),
-        end_time: new Date(Date.now() - i * 3600000 + 30000).toISOString(),
-        total_duration_ms: 30000 + Math.random() * 20000,
-        scenario: scenarios[i % scenarios.length],
-        zkp_metrics: {
-          setup_time_ms: 20 + Math.random() * 40,
-          witness_generation_time_ms: 30 + Math.random() * 50,
-          proof_generation_time_ms: 80 + Math.random() * 100,
-          proof_verification_time_ms: 100 + Math.random() * 150,
-          proof_size_bytes: 1000 + Math.random() * 500,
-          circuit_constraints: 1000,
-          circuit_advice_columns: 5,
-          circuit_fixed_columns: 3,
-          folding_iterations: Math.floor(Math.random() * 10),
-        },
-        training_metrics: {
-          dataset_size: 500 + Math.random() * 500,
-          num_features: 5,
-          training_time_ms: 2 + Math.random() * 8,
-          epochs_completed: 10,
-          final_loss: 0.1 + Math.random() * 0.4,
-          initial_loss: 0.4 + Math.random() * 0.2,
-          convergence_epoch: Math.floor(Math.random() * 10),
-          loss_history: Array.from(
-            { length: 10 },
-            (_, i) => 0.5 - i * 0.03 + Math.random() * 0.02
-          ),
-        },
-        system_metrics: [],
-      };
-      sampleData.push(data);
-    }
-
-    return sampleData;
-  }
-
-  updateMetrics() {
-    const data = this.getFilteredData();
-    if (data.length === 0) return;
-
-    const metrics = this.calculateAggregateMetrics(data);
-
-    document.getElementById("activeClients").textContent = this.isRunning
-      ? data.length
-      : "0";
-    document.getElementById("avgProofTime").textContent = `${Math.round(
-      metrics.avgProofTime
-    )}ms`;
-    document.getElementById("avgVerifyTime").textContent = `${Math.round(
-      metrics.avgVerifyTime
-    )}ms`;
-    document.getElementById("avgTrainingTime").textContent = `${Math.round(
-      metrics.avgTrainingTime
-    )}ms`;
-    document.getElementById("avgLoss").textContent = metrics.avgLoss.toFixed(3);
-    document.getElementById("avgProofSize").textContent = `${Math.round(
-      metrics.avgProofSize / 1024
-    )}KB`;
-  }
-  calculateAggregateMetrics(data) {
-    if (!Array.isArray(data) || data.length === 0) {
-      return {
-        avgProofTime: 0,
-        avgVerifyTime: 0,
-        avgTrainingTime: 0,
-        avgLoss: 0,
-        avgProofSize: 0,
-      };
-    }
-
-    const totals = data.reduce(
-      (acc, item) => {
-        acc.proofTime += item.zkp_metrics?.proof_generation_time_ms || 0;
-        acc.verifyTime += item.zkp_metrics?.proof_verification_time_ms || 0;
-        acc.trainingTime += item.training_metrics?.training_time_ms || 0;
-        acc.loss += item.training_metrics?.final_loss || 0;
-        acc.proofSize += item.zkp_metrics?.proof_size_bytes || 0;
-        return acc;
-      },
-      {
-        proofTime: 0,
-        verifyTime: 0,
-        trainingTime: 0,
-        loss: 0,
-        proofSize: 0,
-      }
-    );
-
-    const count = data.length;
     return {
-      avgProofTime: totals.proofTime / count,
-      avgVerifyTime: totals.verifyTime / count,
-      avgTrainingTime: totals.trainingTime / count,
-      avgLoss: totals.loss / count,
-      avgProofSize: totals.proofSize / count,
+      labels,
+      datasets: [
+        {
+          label: "Training Time (ms)",
+          data: times,
+          backgroundColor: "#007bff",
+        },
+      ],
     };
   }
 
-  updateTable() {
-    const data = this.getFilteredData();
-    const tbody = document.querySelector("#benchmarkTable tbody");
-    tbody.innerHTML = "";
-
-    if (!Array.isArray(data)) {
-      console.warn("benchmarkData is not an array:", data);
-      return;
-    }
-
-    data.slice(0, 20).forEach((item) => {
-      const row = document.createElement("tr");
-      row.innerHTML = `
-                <td>${new Date(item.start_time).toLocaleString()}</td>
-                <td>${item.scenario || "Unknown"}</td>
-                <td>${this.extractClientCount(item.client_id)}</td>
-                <td>-</td>
-                <td>${Math.round(
-                  item.zkp_metrics?.proof_generation_time_ms || 0
-                )}ms</td>
-                <td>${Math.round(
-                  item.zkp_metrics?.proof_verification_time_ms || 0
-                )}ms</td>
-                <td>${Math.round(
-                  item.training_metrics?.training_time_ms || 0
-                )}ms</td>
-                <td>${(item.training_metrics?.final_loss || 0).toFixed(3)}</td>
-                <td><span class="status-badge success">Completed</span></td>
-                <td>
-                    <button class="btn btn-secondary btn-sm" onclick="dashboard.viewDetails('${
-                      item.session_id
-                    }')">
-                        <i class="fas fa-eye"></i>
-                    </button>
-                </td>
-            `;
-      tbody.appendChild(row);
-    });
+  prepareEpochsData(data) {
+    // Bar chart: epochs completed per client/session
+    const labels = data.map((item) => item.client_id || item.session_id || "");
+    const epochs = data.map(
+      (item) => item.training_metrics?.epochs_completed || 0
+    );
+    return {
+      labels,
+      datasets: [
+        {
+          label: "Epochs Completed",
+          data: epochs,
+          backgroundColor: "#28a745",
+        },
+      ],
+    };
   }
 
-  updateCharts() {
-    const data = this.getFilteredData();
-    if (this.charts.loss) {
-      this.charts.loss.data = this.prepareLossData(data);
-      this.charts.loss.update();
-    }
+  prepareDatasetData(data) {
+    // Doughnut: dataset size per client/session
+    const labels = data.map((item) => item.client_id || item.session_id || "");
+    const sizes = data.map((item) => item.training_metrics?.dataset_size || 0);
+    return {
+      labels,
+      datasets: [
+        {
+          label: "Dataset Size",
+          data: sizes,
+          backgroundColor: [
+            "#007bff",
+            "#28a745",
+            "#dc3545",
+            "#ffc107",
+            "#17a2b8",
+            "#6f42c1",
+          ],
+        },
+      ],
+    };
+  }
 
-    if (this.charts.trainingTime) {
-      this.charts.trainingTime.data = this.prepareTrainingTimeData(data);
-      this.charts.trainingTime.update();
-    }
+  prepareZKPTimeData(data) {
+    // Scatter: proof generation vs verification time
+    const points = data.map((item) => ({
+      x: item.zkp_metrics?.proof_generation_time_ms || 0,
+      y: item.zkp_metrics?.proof_verification_time_ms || 0,
+    }));
+    return {
+      datasets: [
+        {
+          label: "Proof vs Verify Time (ms)",
+          data: points,
+          backgroundColor: "#17a2b8",
+        },
+      ],
+    };
+  }
 
-    if (this.charts.epochs) {
-      this.charts.epochs.data = this.prepareEpochsData(data);
-      this.charts.epochs.update();
-    }
+  prepareProofSizeData(data) {
+    // Histogram: proof size distribution
+    const sizes = data.map((item) =>
+      Math.round((item.zkp_metrics?.proof_size_bytes || 0) / 1024)
+    );
+    const bins = {};
+    sizes.forEach((size) => {
+      bins[size] = (bins[size] || 0) + 1;
+    });
+    const labels = Object.keys(bins).sort((a, b) => a - b);
+    const counts = labels.map((l) => bins[l]);
+    return {
+      labels,
+      datasets: [
+        {
+          label: "Proof Size (KB)",
+          data: counts,
+          backgroundColor: "#ffc107",
+        },
+      ],
+    };
+  }
 
-    if (this.charts.dataset) {
-      this.charts.dataset.data = this.prepareDatasetData(data);
-      this.charts.dataset.update();
-    }
+  prepareCircuitData(data) {
+    // Radar: circuit metrics
+    const labels = [
+      "Constraints",
+      "Advice Columns",
+      "Fixed Columns",
+      "Folding Iterations",
+    ];
+    const avg = [0, 0, 0, 0];
+    data.forEach((item) => {
+      avg[0] += item.zkp_metrics?.circuit_constraints || 0;
+      avg[1] += item.zkp_metrics?.circuit_advice_columns || 0;
+      avg[2] += item.zkp_metrics?.circuit_fixed_columns || 0;
+      avg[3] += item.zkp_metrics?.folding_iterations || 0;
+    });
+    for (let i = 0; i < avg.length; i++) avg[i] /= data.length || 1;
+    return {
+      labels,
+      datasets: [
+        {
+          label: "Circuit Metrics",
+          data: avg,
+          backgroundColor: "rgba(40,167,69,0.2)",
+          borderColor: "#28a745",
+        },
+      ],
+    };
+  }
 
-    if (this.charts.zkpTime) {
-      this.charts.zkpTime.data = this.prepareZKPTimeData(data);
-      this.charts.zkpTime.update();
-    }
+  prepareSetupTimeData(data) {
+    // Line: setup time per client/session
+    const labels = data.map((item) => item.client_id || item.session_id || "");
+    const times = data.map((item) => item.zkp_metrics?.setup_time_ms || 0);
+    return {
+      labels,
+      datasets: [
+        {
+          label: "Setup Time (ms)",
+          data: times,
+          borderColor: "#6f42c1",
+          backgroundColor: "rgba(111,66,193,0.2)",
+          fill: true,
+          tension: 0.2,
+        },
+      ],
+    };
+  }
 
-    if (this.charts.proofSize) {
-      this.charts.proofSize.data = this.prepareProofSizeData(data);
-      this.charts.proofSize.update();
-    }
+  prepareScalabilityData(data) {
+    // Line: avg proof gen time vs number of clients
+    const clientCounts = {};
+    data.forEach((item) => {
+      const count = this.extractClientCount(item.client_id);
+      if (!clientCounts[count]) clientCounts[count] = [];
+      clientCounts[count].push(item.zkp_metrics?.proof_generation_time_ms || 0);
+    });
+    const labels = Object.keys(clientCounts).sort((a, b) => a - b);
+    const avgTimes = labels.map((count) => {
+      const arr = clientCounts[count];
+      return arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
+    });
+    return {
+      labels,
+      datasets: [
+        {
+          label: "Avg Proof Gen Time (ms)",
+          data: avgTimes,
+          borderColor: "#007bff",
+          backgroundColor: "rgba(0,123,255,0.2)",
+          fill: true,
+          tension: 0.2,
+        },
+      ],
+    };
+  }
 
-    if (this.charts.circuit) {
-      this.charts.circuit.data = this.prepareCircuitData(data);
-      this.charts.circuit.update();
-    }
+  prepareThroughputData(data) {
+    // Line: throughput per client/session (dummy: 1000/time)
+    const labels = data.map((item) => item.client_id || item.session_id || "");
+    const throughput = data.map((item) => {
+      const t = item.training_metrics?.training_time_ms || 1;
+      return t ? 1000 / t : 0;
+    });
+    return {
+      labels,
+      datasets: [
+        {
+          label: "Throughput (ops/sec)",
+          data: throughput,
+          borderColor: "#fd7e14",
+          backgroundColor: "rgba(253,126,20,0.2)",
+          fill: true,
+          tension: 0.2,
+        },
+      ],
+    };
+  }
 
-    if (this.charts.setupTime) {
-      this.charts.setupTime.data = this.prepareSetupTimeData(data);
-      this.charts.setupTime.update();
-    }
+  prepareResourceData(data) {
+    // Line: system resource usage (if available)
+    // For now, just dummy data
+    const labels = data.map((item) => item.client_id || item.session_id || "");
+    const usage = data.map(() => Math.random() * 100);
+    return {
+      labels,
+      datasets: [
+        {
+          label: "Resource Usage (%)",
+          data: usage,
+          borderColor: "#20c997",
+          backgroundColor: "rgba(32,201,151,0.2)",
+          fill: true,
+          tension: 0.2,
+        },
+      ],
+    };
+  }
 
-    if (this.charts.scalability) {
-      this.charts.scalability.data = this.prepareScalabilityData(data);
-      this.charts.scalability.update();
-    }
+  prepareLatencyData(data) {
+    // Bar: latency per client/session (dummy)
+    const labels = data.map((item) => item.client_id || item.session_id || "");
+    const datasets = [
+      {
+        label: "Latency (ms)",
+        data: data.map(() => [
+          Math.random() * 10 + 20,
+          Math.random() * 10 + 30,
+          Math.random() * 10 + 40,
+        ]),
+        backgroundColor: "#6610f2",
+      },
+    ];
+    return { labels, datasets };
+  }
 
-    if (this.charts.throughput) {
-      this.charts.throughput.data = this.prepareThroughputData(data);
-      this.charts.throughput.update();
-    }
-
-    if (this.charts.resource) {
-      this.charts.resource.data = this.prepareResourceData(data);
-      this.charts.resource.update();
-    }
-
-    if (this.charts.latency) {
-      this.charts.latency.data = this.prepareLatencyData(data);
-      this.charts.latency.update();
-    }
-
-    if (this.charts.comparison) {
-      this.charts.comparison.data = this.prepareComparisonData(
-        this.selectedMetric,
-        this.selectedGroupBy
-      );
-      this.charts.comparison.update();
-    }
+  prepareComparisonData(metric, groupBy) {
+    // Bar: compare selected metric by group (dummy)
+    // You can expand this for real grouping/metrics
+    return { labels: [], datasets: [] };
   }
 
   extractClientCount(clientId) {
