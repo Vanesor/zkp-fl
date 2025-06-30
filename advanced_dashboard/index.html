@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ZKP-FL Advanced Benchmark Dashboard</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/date-fns@2.29.3/index.min.js"></script>
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div id="runDropdownContainer" style="margin: 1em 0;"></div>
+    <div class="dashboard-container">
+      <!-- Header -->
+      <header class="dashboard-header">
+        <div class="header-content">
+          <h1><i class="fas fa-shield-alt"></i> ZKP-FL Advanced Dashboard</h1>
+          <div class="header-controls">
+            <button id="refreshBtn" class="btn btn-secondary">
+              <i class="fas fa-sync-alt"></i> Refresh
+            </button>
+            <button id="exportBtn" class="btn btn-secondary">
+              <i class="fas fa-download"></i> Export
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <!-- Main Content -->
+      <main class="dashboard-main">
+        <!-- Control Panel -->
+        <section class="control-panel">
+          <h2><i class="fas fa-cogs"></i> Benchmark Configuration</h2>
+          <div class="config-grid">
+            <div class="config-group">
+              <label for="scenario">Scenario</label>
+              <select id="scenario" class="form-control">
+                <option value="single-client">Single Client</option>
+                <option value="multi-client-sequential">
+                  Multi-Client Sequential
+                </option>
+                <option value="multi-client-concurrent">
+                  Multi-Client Concurrent
+                </option>
+                <option value="stress-test">Stress Test</option>
+                <option value="custom">Custom</option>
+              </select>
+            </div>
+            <div class="config-group">
+              <label for="numClients">Number of Clients</label>
+              <input
+                type="number"
+                id="numClients"
+                class="form-control"
+                value="3"
+                min="1"
+                max="100"
+              />
+            </div>
+            <div class="config-group">
+              <label for="numRounds">Number of Rounds</label>
+              <input
+                type="number"
+                id="numRounds"
+                class="form-control"
+                value="3"
+                min="1"
+                max="20"
+              />
+            </div>
+            <div class="config-group">
+              <label for="clientDelay">Client Delay (ms)</label>
+              <input
+                type="number"
+                id="clientDelay"
+                class="form-control"
+                value="1000"
+                min="0"
+                max="10000"
+              />
+            </div>
+            <div class="config-group">
+              <label for="maxConcurrent">Max Concurrent</label>
+              <input
+                type="number"
+                id="maxConcurrent"
+                class="form-control"
+                value="10"
+                min="1"
+                max="50"
+              />
+            </div>
+            <div class="config-group">
+              <label for="serverUrl">Server URL</label>
+              <input
+                type="text"
+                id="serverUrl"
+                class="form-control"
+                placeholder="http://localhost:8080"
+              />
+            </div>
+          </div>
+          <div class="control-actions">
+            <button id="runBenchmarkBtn" class="btn btn-primary">
+              <i class="fas fa-play"></i> Run Benchmark
+            </button>
+            <button id="stopBenchmarkBtn" class="btn btn-danger" disabled>
+              <i class="fas fa-stop"></i> Stop Benchmark
+            </button>
+          </div>
+          <div id="benchmarkStatus" class="status-display"></div>
+        </section>
+
+        <!-- Metrics Overview -->
+        <section class="metrics-overview">
+          <h2><i class="fas fa-chart-line"></i> Real-time Metrics</h2>
+          <div class="metrics-grid">
+            <div class="metric-card">
+              <div class="metric-icon"><i class="fas fa-users"></i></div>
+              <div class="metric-content">
+                <div class="metric-value" id="activeClients">0</div>
+                <div class="metric-label">Active Clients</div>
+              </div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-icon"><i class="fas fa-clock"></i></div>
+              <div class="metric-content">
+                <div class="metric-value" id="avgProofTime">0ms</div>
+                <div class="metric-label">Avg Proof Time</div>
+              </div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-icon"><i class="fas fa-shield-alt"></i></div>
+              <div class="metric-content">
+                <div class="metric-value" id="avgVerifyTime">0ms</div>
+                <div class="metric-label">Avg Verify Time</div>
+              </div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-icon"><i class="fas fa-brain"></i></div>
+              <div class="metric-content">
+                <div class="metric-value" id="avgTrainingTime">0ms</div>
+                <div class="metric-label">Avg Training Time</div>
+              </div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-icon"><i class="fas fa-chart-area"></i></div>
+              <div class="metric-content">
+                <div class="metric-value" id="avgLoss">0.000</div>
+                <div class="metric-label">Avg Final Loss</div>
+              </div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-icon"><i class="fas fa-database"></i></div>
+              <div class="metric-content">
+                <div class="metric-value" id="avgProofSize">0KB</div>
+                <div class="metric-label">Avg Proof Size</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Visualization Tabs -->
+        <section class="visualization-section">
+          <div class="tab-header">
+            <button class="tab-btn active" data-tab="training">
+              <i class="fas fa-graduation-cap"></i> Training Metrics
+            </button>
+            <button class="tab-btn" data-tab="zkp">
+              <i class="fas fa-lock"></i> ZKP Metrics
+            </button>
+            <button class="tab-btn" data-tab="performance">
+              <i class="fas fa-tachometer-alt"></i> Performance
+            </button>
+            <button class="tab-btn" data-tab="comparison">
+              <i class="fas fa-balance-scale"></i> Comparison
+            </button>
+          </div>
+
+          <!-- Training Metrics Tab -->
+          <div id="trainingTab" class="tab-content active">
+            <div class="chart-container">
+              <div class="chart-box">
+                <h3>Loss Convergence by Client</h3>
+                <canvas id="lossChart"></canvas>
+              </div>
+              <div class="chart-box">
+                <h3>Training Time Distribution</h3>
+                <canvas id="trainingTimeChart"></canvas>
+              </div>
+            </div>
+            <div class="chart-container">
+              <div class="chart-box">
+                <h3>Epochs Completed by Client</h3>
+                <canvas id="epochsChart"></canvas>
+              </div>
+              <div class="chart-box">
+                <h3>Dataset Size Distribution</h3>
+                <canvas id="datasetChart"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <!-- ZKP Metrics Tab -->
+          <div id="zkpTab" class="tab-content">
+            <div class="chart-container">
+              <div class="chart-box">
+                <h3>Proof Generation vs Verification Time</h3>
+                <canvas id="zkpTimeChart"></canvas>
+              </div>
+              <div class="chart-box">
+                <h3>Proof Size Distribution</h3>
+                <canvas id="proofSizeChart"></canvas>
+              </div>
+            </div>
+            <div class="chart-container">
+              <div class="chart-box">
+                <h3>Circuit Complexity</h3>
+                <canvas id="circuitChart"></canvas>
+              </div>
+              <div class="chart-box">
+                <h3>ZKP Setup Time</h3>
+                <canvas id="setupTimeChart"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <!-- Performance Tab -->
+          <div id="performanceTab" class="tab-content">
+            <div class="chart-container">
+              <div class="chart-box">
+                <h3>Scalability Analysis</h3>
+                <canvas id="scalabilityChart"></canvas>
+              </div>
+              <div class="chart-box">
+                <h3>Throughput Over Time</h3>
+                <canvas id="throughputChart"></canvas>
+              </div>
+            </div>
+            <div class="chart-container">
+              <div class="chart-box">
+                <h3>System Resource Usage</h3>
+                <canvas id="resourceChart"></canvas>
+              </div>
+              <div class="chart-box">
+                <h3>Network Latency</h3>
+                <canvas id="latencyChart"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <!-- Comparison Tab -->
+          <div id="comparisonTab" class="tab-content">
+            <div class="comparison-controls">
+              <div class="control-group">
+                <label for="compareMetric">Compare Metric:</label>
+                <select id="compareMetric" class="form-control">
+                  <option value="proof_time">Proof Generation Time</option>
+                  <option value="verify_time">Verification Time</option>
+                  <option value="training_time">Training Time</option>
+                  <option value="final_loss">Final Loss</option>
+                  <option value="proof_size">Proof Size</option>
+                </select>
+              </div>
+              <div class="control-group">
+                <label for="groupBy">Group By:</label>
+                <select id="groupBy" class="form-control">
+                  <option value="scenario">Scenario</option>
+                  <option value="client_count">Client Count</option>
+                  <option value="round">Round</option>
+                  <option value="date">Date</option>
+                </select>
+              </div>
+            </div>
+            <div class="chart-container">
+              <div class="chart-box full-width">
+                <h3>Benchmark Comparison</h3>
+                <canvas id="comparisonChart"></canvas>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Recent Benchmarks -->
+        <section class="recent-benchmarks">
+          <h2><i class="fas fa-history"></i> Recent Benchmark Results</h2>
+          <div class="table-container">
+            <table id="benchmarkTable" class="results-table">
+              <thead>
+                <tr>
+                  <th>Timestamp</th>
+                  <th>Scenario</th>
+                  <th>Clients</th>
+                  <th>Rounds</th>
+                  <th>Avg Proof Time</th>
+                  <th>Avg Verify Time</th>
+                  <th>Avg Training Time</th>
+                  <th>Final Loss</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+
+      <!-- Loading Overlay -->
+      <div id="loadingOverlay" class="loading-overlay">
+        <div class="loading-content">
+          <div class="spinner"></div>
+          <p>Running benchmark...</p>
+          <div id="loadingProgress" class="progress-info"></div>
+        </div>      </div>
+    </div>
+
+    <script src="/static/dashboard.js"></script>
+  </body>
+</html>

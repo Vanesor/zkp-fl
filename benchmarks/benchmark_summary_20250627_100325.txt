@@ -1,0 +1,41 @@
+
+ZKP-FL Benchmark Summary Report
+===============================
+
+Benchmark ID: 41d60f20-ba4e-4c2d-b0cb-4fd0a1672a0c
+Scenario: MultiClientConcurrent
+Date: 2025-06-27 10:03:25 UTC
+Duration: 0.00 seconds
+
+Test Configuration:
+- Number of clients: 3
+- Number of rounds: 1
+- Total executions: 1
+
+Performance Metrics:
+- Average proof generation time: 83.00 ms
+- Min proof generation time: 83 ms
+- Max proof generation time: 83 ms
+- Average verification time: 117.00 ms
+- Average training time: 3.00 ms
+- Success rate: 100.0%
+- Throughput: 0.18 proofs/second
+
+Results:
+- Total proofs generated: 3
+- Total proofs verified: 3
+- Failed executions: 0
+
+Time Breakdown:
+- Total benchmark time: 0.00 seconds
+- Average per client: 0.00 seconds
+
+System Performance:
+- Memory usage: Varied
+- CPU usage: Varied
+- Network latency: Varied
+
+Notes:
+- All times are in milliseconds unless specified
+- Success rate is based on successful proof verification
+- Throughput is calculated as total proofs / total time

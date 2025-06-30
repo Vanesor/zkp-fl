@@ -1,0 +1,230 @@
+# Rust
+/target/
+**/*.rs.bk
+*.pdb
+Cargo.lock
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+*.manifest
+*.spec
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDEs and editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+logs/
+*.out
+
+# Benchmark results and temporary files
+/benchmarks/*.json
+/benchmarks/results/
+/benchmarks/temp/
+benchmark_*.json
+results_*.json
+session_*.json
+
+# ZKP circuit files and proofs
+*.proof
+*.circuit
+*.params
+circuit_cache/
+proof_cache/
+setup_cache/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Configuration files with secrets
+config.local.toml
+.env.local
+secrets.toml
+private.key
+
+# Temporary and cache files
+tmp/
+temp/
+cache/
+.cache/
+*.tmp
+*.temp
+
+# Dashboard static files (if generated)
+/advanced_dashboard/static/generated/
+/advanced_dashboard/node_modules/
+/advanced_dashboard/package-lock.json
+
+# Jupyter notebooks checkpoints
+.ipynb_checkpoints/
+
+# Documentation build
+/docs/_build/
+/docs/build/
+
+# Test artifacts
+test_results/
+coverage/
+htmlcov/
+
+# Profiling and debugging
+*.prof
+perf.data*
+flamegraph.svg
+
+# Large data files
+*.csv
+*.parquet
+datasets/
+data/
+*.h5
+*.hdf5
+
+# Compiled binaries
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Lock files
+package-lock.json
+yarn.lock
+poetry.lock
+
+# SSL certificates
+*.pem
+*.crt
+*.key
+*.p12
+*.pfx
+
+# Memory dumps and core files
+core
+*.dmp
+*.mdmp
+
+# Windows specific
+*.lnk
+desktop.ini
+
+# macOS specific
+.AppleDouble
+.LSOverride
+Icon
+
+# Linux specific
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# ZKP-FL specific files
+/client/target/
+/server/target/
+/common/target/
+/benchmarks/target/
+/advanced_dashboard/*.pid
+/advanced_dashboard/server.log
+benchmark_session_*
+training_data_*.json
+model_weights_*.bin
+proof_*.dat
+
+# Development and testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+test_output/
+integration_tests/results/
+
+# Documentation
+/target/doc/
+book/
+*.pdf
+
+# Monitoring and metrics
+metrics/
+monitoring/
+grafana_data/
+prometheus_data/
+
+# Docker
+.dockerignore
+docker-compose.override.yml
+
+# Kubernetes
+*.kubeconfig
+k8s-secrets/
+
+# Terraform
+*.tfstate
+*.tfstate.backup
+.terraform/

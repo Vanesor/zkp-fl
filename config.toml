@@ -1,0 +1,115 @@
+# ZKP Federated Learning Configuration
+
+[server]
+host = "127.0.0.1"
+port = 8080
+max_clients = 100
+max_connections = 1000
+request_timeout_ms = 30000
+proof_storage_path = "./proofs"
+log_level = "info"
+
+[client]
+server_url = "http://127.0.0.1:8080"
+client_id = "default-client"
+training_epochs = 10
+batch_size = 32
+learning_rate = 0.01
+connection_timeout_ms = 5000
+retry_attempts = 3
+retry_delay_ms = 1000
+
+[circuit]
+k = 12
+num_features = 5
+precision_bits = 32
+max_iterations = 100
+
+[dataset]
+path = "synthetic:1000,5"
+target_column = "target"
+feature_columns = ["age", "bmi", "blood_pressure", "cholesterol", "glucose"]
+train_test_split = 0.8
+normalize = true
+
+[benchmarks]
+# Output and logging settings
+output_path = "./benchmarks"
+output_directory = "./benchmark_results"
+metrics_interval_ms = 1000
+detailed_logging = true
+
+# Default benchmark settings
+default_clients = 5
+default_rounds = 3
+default_concurrent = 10
+
+# Performance thresholds
+max_training_time_ms = 10000
+max_proof_time_ms = 30000
+max_verification_time_ms = 5000
+min_success_rate = 0.95
+security_level = 128
+
+# Stress test settings
+stress_test_clients = 50
+stress_test_max_concurrent = 20
+stress_test_timeout_ms = 300000
+
+[training]
+# Dataset parameters
+default_dataset_size = 1000
+max_dataset_size = 10000
+feature_count = 10
+target_column = "target"
+
+# Model parameters
+learning_rate = 0.01
+max_epochs = 100
+convergence_threshold = 1e-6
+regularization = 0.001
+
+# Privacy parameters
+noise_level = 0.1
+differential_privacy = false
+
+[storage]
+# Proof storage settings
+storage_type = "file" # "file", "memory", "database"
+storage_path = "./proofs"
+max_proof_age_hours = 24
+cleanup_interval_hours = 6
+
+# Database settings (if storage_type = "database")
+database_url = "sqlite:./zkp_fl.db"
+connection_pool_size = 10
+
+[logging]
+level = "info" # "trace", "debug", "info", "warn", "error"
+format = "pretty" # "pretty", "json", "compact"
+log_to_file = true
+log_file = "./zkp_fl.log"
+max_log_size_mb = 100
+rotate_logs = true
+
+[monitoring]
+# Metrics collection
+enable_metrics = true
+metrics_interval_ms = 1000
+export_prometheus = false
+prometheus_port = 9090
+
+# Health checks
+health_check_interval_ms = 5000
+health_check_timeout_ms = 2000
+
+[security]
+# TLS settings
+enable_tls = false
+cert_file = "./certs/server.crt"
+key_file = "./certs/server.key"
+
+# Authentication
+require_auth = false
+jwt_secret = "your-secret-key-here"
+token_expiry_hours = 24
