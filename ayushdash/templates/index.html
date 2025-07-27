@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ZKP-FL Benchmark Dashboard</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        /* Reset and base styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* Header styles */
+        header {
+            text-align: center;
+            margin-bottom: 2rem;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 2rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        h1 {
+            color: white;
+            margin-bottom: 1rem;
+            font-size: 2.5rem;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .timestamp {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        /* Input Controls */
+        .controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .input-group label {
+            color: white;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        .input-group input {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.9);
+            width: 100px;
+            text-align: center;
+            font-size: 1rem;
+        }
+
+        .run-button {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(238, 90, 36, 0.4);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .run-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(238, 90, 36, 0.6);
+        }
+
+        .run-button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 1rem 0;
+            color: white;
+            font-weight: 500;
+        }
+
+        .spinner {
+            width: 25px;
+            height: 25px;
+            margin-left: 15px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-top: 3px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Grid layout */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        /* Card styles */
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 1.5rem;
+            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 40px rgba(31, 38, 135, 0.5);
+        }
+
+        .card h2 {
+            color: #667eea;
+            margin-bottom: 1rem;
+            font-size: 1.4rem;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        /* Metrics section */
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .metric {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            padding: 1rem;
+            border-radius: 10px;
+            text-align: center;
+            color: white;
+            box-shadow: 0 4px 15px rgba(240, 147, 251, 0.3);
+        }
+
+        .metric .label {
+            display: block;
+            font-size: 0.85rem;
+            margin-bottom: 0.5rem;
+            opacity: 0.9;
+            font-weight: 500;
+        }
+
+        .metric .value {
+            font-size: 1.2rem;
+            font-weight: 700;
+        }
+
+        /* Summary section */
+        .summary {
+            margin-top: 2rem;
+            grid-column: 1 / -1;
+        }
+
+        .summary pre {
+            background: rgba(0, 0, 0, 0.05);
+            padding: 1.5rem;
+            border-radius: 10px;
+            overflow-x: auto;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            color: #555;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        /* Chart containers */
+        .chart-container {
+            width: 100%;
+            height: 350px;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        /* Performance metrics grid */
+        .performance-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .perf-metric {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            padding: 1.5rem;
+            border-radius: 12px;
+            text-align: center;
+            color: white;
+            box-shadow: 0 4px 15px rgba(79, 172, 254, 0.3);
+        }
+
+        .perf-metric .perf-label {
+            font-size: 0.9rem;
+            opacity: 0.9;
+            margin-bottom: 0.5rem;
+        }
+
+        .perf-metric .perf-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .perf-metric .perf-unit {
+            font-size: 0.8rem;
+            opacity: 0.8;
+        }
+
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+            
+            .controls {
+                flex-direction: column;
+                gap: 1rem;
+            }
+            
+            .grid {
+                grid-template-columns: 1fr;
+            }
+            
+            h1 {
+                font-size: 2rem;
+            }
+        }
+
+        /* Status indicator */
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-success {
+            background-color: #4CAF50;
+            animation: pulse 2s infinite;
+        }
+
+        .status-running {
+            background-color: #FF9800;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🚀 ZKP-FL Benchmark Dashboard</h1>
+            <p class="timestamp" id="lastUpdated">
+                <span class="status-indicator status-success"></span>
+                Last Updated: <span id="timestampValue">{{ data.timestamp if data else 'No data available' }}</span>
+            </p>
+            
+            <div class="controls">
+                <div class="input-group">
+                    <label for="numClients">Number of Clients</label>
+                    <input type="number" id="numClients" value="1" min="1" max="100">
+                </div>
+                <div class="input-group">
+                    <label for="numRounds">Number of Rounds</label>
+                    <input type="number" id="numRounds" value="1" min="1" max="50">
+                </div>
+                <button id="runBenchmark" class="run-button">
+                    🔥 Run Benchmark
+                </button>
+            </div>
+            
+            <div id="loading" class="loading" style="display: none;">
+                <span class="status-indicator status-running"></span>
+                Running benchmark... <div class="spinner"></div>
+            </div>
+        </header>
+
+        <div class="grid" id="chartsGrid">
+            <!-- Training Performance Card -->
+            <div class="card">
+                <h2>📈 Training Performance</h2>
+                <div class="chart-container" id="lossChart"></div>
+                <div class="metrics">
+                    <div class="metric">
+                        <span class="label">Initial Loss</span>
+                        <span class="value" id="initialLoss">0.0000</span>
+                    </div>
+                    <div class="metric">
+                        <span class="label">Final Loss</span>
+                        <span class="value" id="finalLoss">0.0000</span>
+                    </div>
+                    <div class="metric">
+                        <span class="label">Loss Reduction</span>
+                        <span class="value" id="lossReduction">0.00%</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ZKP Performance Card -->
+            <div class="card">
+                <h2>🔒 ZKP Operation Times</h2>
+                <div class="chart-container" id="zkpChart"></div>
+                <div class="performance-grid">
+                    <div class="perf-metric">
+                        <div class="perf-label">Total ZKP Time</div>
+                        <div class="perf-value" id="totalZkpTime">0</div>
+                        <div class="perf-unit">milliseconds</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Resource Usage Card -->
+            <div class="card">
+                <h2>⚡ Resource Usage</h2>
+                <div class="chart-container" id="resourceChart"></div>
+                <div class="metrics">
+                    <div class="metric">
+                        <span class="label">Training Time</span>
+                        <span class="value" id="trainingTime">0ms</span>
+                    </div>
+                    <div class="metric">
+                        <span class="label">Proof Size</span>
+                        <span class="value" id="proofSize">0 bytes</span>
+                    </div>
+                    <div class="metric">
+                        <span class="label">Efficiency</span>
+                        <span class="value" id="efficiency">N/A</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Performance Comparison Card -->
+            <div class="card">
+                <h2>📊 Performance Breakdown</h2>
+                <div class="chart-container" id="performanceChart"></div>
+                <div class="performance-grid">
+                    <div class="perf-metric">
+                        <div class="perf-label">Setup Efficiency</div>
+                        <div class="perf-value" id="setupEff">100%</div>
+                    </div>
+                    <div class="perf-metric">
+                        <div class="perf-label">Proof Efficiency</div>
+                        <div class="perf-value" id="proofEff">100%</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Summary Card -->
+            <div class="card summary">
+                <h2>📋 Benchmark Summary</h2>
+                <pre id="summaryContent">No benchmark data available. Run a benchmark to see results.</pre>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global data storage
+        let currentData = null;
+
+        $(document).ready(function() {
+            // Initialize with existing data if available
+            {% if data %}
+            currentData = {{ data|tojson }};
+            updateAllCharts(currentData);
+            {% endif %}
+
+            $('#runBenchmark').click(function() {
+                const button = $(this);
+                const loading = $('#loading');
+                const numClients = $('#numClients').val();
+                const numRounds = $('#numRounds').val();
+                
+                // Validation
+                if (numClients < 1 || numRounds < 1) {
+                    alert('Please enter valid numbers for clients and rounds (minimum 1 each)');
+                    return;
+                }
+                
+                // Disable button and show loading
+                button.prop('disabled', true);
+                loading.show();
+                
+                // Update status indicator
+                $('.status-indicator').removeClass('status-success').addClass('status-running');
+                
+                // Make AJAX call to run benchmark
+                $.ajax({
+                    url: '/run-benchmark',
+                    method: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({
+                        num_clients: parseInt(numClients),
+                        num_rounds: parseInt(numRounds)
+                    }),
+                    success: function(response) {
+                        if (response.success) {
+                            currentData = response.data;
+                            updateAllCharts(response.data);
+                            $('#timestampValue').text(response.data.timestamp);
+                            $('#summaryContent').text(response.data.summary);
+                            
+                            // Update status indicator
+                            $('.status-indicator').removeClass('status-running').addClass('status-success');
+                        } else {
+                            alert('Error running benchmark: ' + response.error);
+                        }
+                    },
+                    error: function() {
+                        alert('Failed to run benchmark. Please try again.');
+                    },
+                    complete: function() {
+                        button.prop('disabled', false);
+                        loading.hide();
+                    }
+                });
+            });
+        });
+
+        function updateAllCharts(data) {
+            updateLossChart(data);
+            updateZkpChart(data);
+            updateResourceChart(data);
+            updatePerformanceChart(data);
+            updateMetrics(data);
+        }
+
+        function updateLossChart(data) {
+            const lossData = {
+                x: data.training_metrics.epochs,
+                y: data.training_metrics.loss_history,
+                type: 'scatter',
+                mode: 'lines+markers',
+                name: 'Training Loss',
+                line: {
+                    color: '#667eea',
+                    width: 3
+                },
+                marker: {
+                    size: 8,
+                    color: '#764ba2'
+                }
+            };
+
+            const layout = {
+                title: {
+                    text: 'Training Loss Over Time',
+                    font: { size: 16, color: '#333' }
+                },
+                xaxis: { 
+                    title: 'Epoch',
+                    gridcolor: 'rgba(0,0,0,0.1)'
+                },
+                yaxis: { 
+                    title: 'Loss Value',
+                    gridcolor: 'rgba(0,0,0,0.1)'
+                },
+                plot_bgcolor: 'rgba(0,0,0,0)',
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                margin: { t: 40, b: 40, l: 50, r: 20 }
+            };
+
+            Plotly.react('lossChart', [lossData], layout, {responsive: true});
+        }
+
+        function updateZkpChart(data) {
+            const zkpData = {
+                x: ['Setup', 'Witness Gen', 'Proof Gen', 'Verification'],
+                y: [
+                    data.zkp_metrics.setup_time,
+                    data.zkp_metrics.witness_gen_time,
+                    data.zkp_metrics.proof_gen_time,
+                    data.zkp_metrics.proof_verify_time
+                ],
+                type: 'bar',
+                marker: {
+                    color: ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4'],
+                    line: {
+                        color: 'rgba(255,255,255,0.8)',
+                        width: 2
+                    }
+                }
+            };
+
+            const layout = {
+                title: {
+                    text: 'ZKP Operation Performance',
+                    font: { size: 16, color: '#333' }
+                },
+                xaxis: { 
+                    title: 'Operation Type',
+                    gridcolor: 'rgba(0,0,0,0.1)'
+                },
+                yaxis: { 
+                    title: 'Time (ms)',
+                    gridcolor: 'rgba(0,0,0,0.1)'
+                },
+                plot_bgcolor: 'rgba(0,0,0,0)',
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                margin: { t: 40, b: 40, l: 50, r: 20 }
+            };
+
+            Plotly.react('zkpChart', [zkpData], layout, {responsive: true});
+        }
+
+        function updateResourceChart(data) {
+            const resourceData = [{
+                values: [
+                    data.zkp_metrics.setup_time,
+                    data.zkp_metrics.witness_gen_time,
+                    data.zkp_metrics.proof_gen_time,
+                    data.zkp_metrics.proof_verify_time,
+                    data.training_metrics.training_time
+                ],
+                labels: ['ZKP Setup', 'Witness Gen', 'Proof Gen', 'Verification', 'Training'],
+                type: 'pie',
+                marker: {
+                    colors: ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#ffa726']
+                },
+                textinfo: 'label+percent',
+                textposition: 'outside'
+            }];
+
+            const layout = {
+                title: {
+                    text: 'Time Distribution',
+                    font: { size: 16, color: '#333' }
+                },
+                plot_bgcolor: 'rgba(0,0,0,0)',
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                margin: { t: 40, b: 20, l: 20, r: 20 }
+            };
+
+            Plotly.react('resourceChart', resourceData, layout, {responsive: true});
+        }
+
+        function updatePerformanceChart(data) {
+            const categories = ['Setup', 'Witness', 'Proof', 'Verify'];
+            const times = [
+                data.zkp_metrics.setup_time,
+                data.zkp_metrics.witness_gen_time,
+                data.zkp_metrics.proof_gen_time,
+                data.zkp_metrics.proof_verify_time
+            ];
+
+            const performanceData = [{
+                x: categories,
+                y: times,
+                type: 'bar',
+                name: 'Current Run',
+                marker: {
+                    color: 'rgba(102, 126, 234, 0.8)',
+                    line: {
+                        color: 'rgba(102, 126, 234, 1)',
+                        width: 2
+                    }
+                }
+            }];
+
+            const layout = {
+                title: {
+                    text: 'Performance Metrics Comparison',
+                    font: { size: 16, color: '#333' }
+                },
+                xaxis: { 
+                    title: 'Operation',
+                    gridcolor: 'rgba(0,0,0,0.1)'
+                },
+                yaxis: { 
+                    title: 'Time (ms)',
+                    gridcolor: 'rgba(0,0,0,0.1)'
+                },
+                plot_bgcolor: 'rgba(0,0,0,0)',
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                margin: { t: 40, b: 40, l: 50, r: 20 }
+            };
+
+            Plotly.react('performanceChart', performanceData, layout, {responsive: true});
+        }
+
+        function updateMetrics(data) {
+            // Training metrics
+            $('#initialLoss').text(data.training_metrics.initial_loss.toFixed(4));
+            $('#finalLoss').text(data.training_metrics.final_loss.toFixed(4));
+            
+            const lossReduction = ((data.training_metrics.initial_loss - data.training_metrics.final_loss) / data.training_metrics.initial_loss * 100).toFixed(2);
+            $('#lossReduction').text(lossReduction + '%');
+            
+            // ZKP metrics
+            const totalZkpTime = data.zkp_metrics.setup_time + data.zkp_metrics.witness_gen_time + 
+                               data.zkp_metrics.proof_gen_time + data.zkp_metrics.proof_verify_time;
+            $('#totalZkpTime').text(totalZkpTime.toFixed(0));
+            
+            // Resource metrics
+            $('#trainingTime').text(data.training_metrics.training_time + 'ms');
+            $('#proofSize').text(data.zkp_metrics.proof_size + ' bytes');
+            
+            const efficiency = (data.training_metrics.training_time / totalZkpTime).toFixed(2);
+            $('#efficiency').text(efficiency + 'x');
+            
+            // Performance efficiency
+            $('#setupEff').text('100%');
+            $('#proofEff').text('100%');
+        }
+
+        // Initialize empty charts if no data
+        {% if not data %}
+        $(document).ready(function() {
+            // Initialize empty charts
+            Plotly.newPlot('lossChart', [], {
+                title: 'Training Loss Over Time',
+                xaxis: { title: 'Epoch' },
+                yaxis: { title: 'Loss' }
+            });
+            
+            Plotly.newPlot('zkpChart', [], {
+                title: 'ZKP Operation Times',
+                xaxis: { title: 'Operation' },
+                yaxis: { title: 'Time (ms)' }
+            });
+            
+            Plotly.newPlot('resourceChart', [], {
+                title: 'Resource Usage Distribution'
+            });
+            
+            Plotly.newPlot('performanceChart', [], {
+                title: 'Performance Metrics',
+                xaxis: { title: 'Metric' },
+                yaxis: { title: 'Value' }
+            });
+        });
+        {% endif %}
+    </script>
+</body>
+</html>

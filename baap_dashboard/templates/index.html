@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ZKP-FL Benchmark Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>ZKP-FL Benchmark Dashboard</h1>
+            <p class="timestamp">Last Updated: {{ data.timestamp }}</p>
+            <button id="runBenchmark" class="run-button">Run New Benchmark</button>
+            <div id="loading" class="loading" style="display: none;">
+                Running benchmark... <div class="spinner"></div>
+            </div>
+        </header>
+
+        <div class="grid">
+            <div class="card">
+                <h2>Training Loss Over Epochs</h2>
+                <div id="lossChart"></div>
+                <div class="metrics">
+                    <div class="metric">
+                        <span class="label">Initial Loss:</span>
+                        <span class="value">{{ "%.4f"|format(data.training_metrics.initial_loss) }}</span>
+                    </div>
+                    <div class="metric">
+                        <span class="label">Final Loss:</span>
+                        <span class="value">{{ "%.4f"|format(data.training_metrics.final_loss) }}</span>
+                    </div>
+                    <div class="metric">
+                        <span class="label">Training Time:</span>
+                        <span class="value">{{ data.training_metrics.training_time }}ms</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>ZKP Performance Metrics</h2>
+                <div id="zkpChart"></div>
+                <div class="metrics">
+                    <div class="metric">
+                        <span class="label">Proof Size:</span>
+                        <span class="value">{{ data.zkp_metrics.proof_size }} bytes</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card summary">
+            <h2>Benchmark Summary</h2>
+            <pre>{{ data.summary }}</pre>
+        </div>
+    </div>
+
+    <script>
+        $(document).ready(function() {
+            $('#runBenchmark').click(function() {
+                const button = $(this);
+                const loading = $('#loading');
+                
+                // Disable button and show loading
+                button.prop('disabled', true);
+                loading.show();
+                
+                // Make AJAX call to run benchmark
+                $.ajax({
+                    url: '/run-benchmark',
+                    method: 'POST',
+                    success: function(response) {
+                        if (response.success) {
+                            // Update the charts with new data
+                            updateCharts(response.data);
+                            // Update timestamp
+                            $('.timestamp').text('Last Updated: ' + response.data.timestamp);
+                            // Update summary
+                            $('.summary pre').text(response.data.summary);
+                        } else {
+                            alert('Error running benchmark: ' + response.error);
+                        }
+                    },
+                    error: function() {
+                        alert('Failed to run benchmark. Please try again.');
+                    },
+                    complete: function() {
+                        // Re-enable button and hide loading
+                        button.prop('disabled', false);
+                        loading.hide();
+                    }
+                });
+            });
+
+            function updateCharts(data) {
+                // Update Loss Chart
+                const lossData = {
+                    x: data.training_metrics.epochs,
+                    y: data.training_metrics.loss_history,
+                    type: 'scatter',
+                    mode: 'lines+markers',
+                    name: 'Training Loss',
+                    line: {
+                        color: '#2196F3'
+                    }
+                };
+
+                Plotly.react('lossChart', [lossData], {
+                    title: 'Training Loss vs Epochs',
+                    xaxis: { title: 'Epoch' },
+                    yaxis: { title: 'Loss' },
+                    margin: { t: 30 }
+                });
+
+                // Update ZKP Chart
+                const zkpData = {
+                    x: ['Setup', 'Witness Gen', 'Proof Gen', 'Verification'],
+                    y: [
+                        data.zkp_metrics.setup_time,
+                        data.zkp_metrics.witness_gen_time,
+                        data.zkp_metrics.proof_gen_time,
+                        data.zkp_metrics.proof_verify_time
+                    ],
+                    type: 'bar',
+                    marker: {
+                        color: '#4CAF50'
+                    }
+                };
+
+                Plotly.react('zkpChart', [zkpData], {
+                    title: 'ZKP Operation Times (ms)',
+                    xaxis: { title: 'Operation' },
+                    yaxis: { title: 'Time (ms)' },
+                    margin: { t: 30 }
+                });
+
+                // Update metrics
+                $('.metric .value').each(function() {
+                    const metricType = $(this).closest('.metric').find('.label').text().toLowerCase();
+                    if (metricType.includes('initial loss')) {
+                        $(this).text(data.training_metrics.initial_loss.toFixed(4));
+                    } else if (metricType.includes('final loss')) {
+                        $(this).text(data.training_metrics.final_loss.toFixed(4));
+                    } else if (metricType.includes('training time')) {
+                        $(this).text(data.training_metrics.training_time + 'ms');
+                    } else if (metricType.includes('proof size')) {
+                        $(this).text(data.zkp_metrics.proof_size + ' bytes');
+                    }
+                });
+            }
+        });
+
+        // Training Loss Chart
+        const lossData = {
+            x: {{ data.training_metrics.epochs|tojson }},
+            y: {{ data.training_metrics.loss_history|tojson }},
+            type: 'scatter',
+            mode: 'lines+markers',
+            name: 'Training Loss',
+            line: {
+                color: '#2196F3'
+            }
+        };
+
+        Plotly.newPlot('lossChart', [lossData], {
+            title: 'Training Loss vs Epochs',
+            xaxis: { title: 'Epoch' },
+            yaxis: { title: 'Loss' },
+            margin: { t: 30 }
+        });
+
+        // ZKP Metrics Chart
+        const zkpData = {
+            x: ['Setup', 'Witness Gen', 'Proof Gen', 'Verification'],
+            y: [
+                {{ data.zkp_metrics.setup_time }},
+                {{ data.zkp_metrics.witness_gen_time }},
+                {{ data.zkp_metrics.proof_gen_time }},
+                {{ data.zkp_metrics.proof_verify_time }}
+            ],
+            type: 'bar',
+            marker: {
+                color: '#4CAF50'
+            }
+        };
+
+        Plotly.newPlot('zkpChart', [zkpData], {
+            title: 'ZKP Operation Times (ms)',
+            xaxis: { title: 'Operation' },
+            yaxis: { title: 'Time (ms)' },
+            margin: { t: 30 }
+        });
+    </script>
+</body>
+</html>
